@@ -1,0 +1,42 @@
+### Create a New Quiz
+POST http://localhost:5001/api/quizzes
+Content-Type: application/json
+
+{
+  "title": "JavaScript Fundamentals",
+  "questions": [
+    {
+      "questionText": "What keyword is used to declare a variable that cannot be reassigned?",
+      "options": ["let", "var", "const", "static"],
+      "correctAnswer": "const"
+    },
+    {
+      "questionText": "Which of the following is NOT a primitive type in JavaScript?",
+      "options": ["string", "number", "object", "boolean"],
+      "correctAnswer": "object"
+    }
+  ]
+}
+
+
+
+### Get All Quizzes
+GET http://localhost:5001/api/quizzes
+
+
+### Get Single Quiz by ID
+# Replace the ID below with a real quiz ID from your database
+GET http://localhost:5001/api/quizzes/68d823883674e6a1af1ebcc3
+
+
+### Submit Quiz Answers
+# Replace the ID in the URL with your QUIZ ID
+POST http://localhost:5001/api/quizzes/68d823883674e6a1af1ebcc3/submit
+Content-Type: application/json
+
+{
+  "answers": {
+    "68d823883674e6a1af1ebcc4": "const", 
+    "68d823883674e6a1af1ebcc5": "boolean"
+  }
+}
