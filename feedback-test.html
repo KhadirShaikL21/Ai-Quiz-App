@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .feedback { margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #007bff; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>Quiz Feedback API Test</h1>
+    
+    <div>
+        <label>Quiz Topic: 
+            <input type="text" id="quizTopic" value="JavaScript Fundamentals" style="margin-left: 10px; padding: 5px;">
+        </label>
+    </div>
+    <br>
+    <div>
+        <label>Score: 
+            <input type="number" id="score" value="8" min="0" style="margin-left: 10px; padding: 5px;">
+        </label>
+    </div>
+    <br>
+    <div>
+        <label>Total Questions: 
+            <input type="number" id="total" value="10" min="1" style="margin-left: 10px; padding: 5px;">
+        </label>
+    </div>
+    <br>
+    <button onclick="getFeedback()">Get Feedback</button>
+    
+    <div id="result"></div>
+
+    <script>
+        async function getFeedback() {
+            const quizTopic = document.getElementById('quizTopic').value;
+            const score = parseInt(document.getElementById('score').value);
+            const total = parseInt(document.getElementById('total').value);
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                const response = await fetch('http://localhost:5001/api/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        quizTopic,
+                        score,
+                        total
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const aiStatus = data.isAIGenerated ? '🤖 AI Generated' : '📝 Fallback Generated';
+                    resultDiv.innerHTML = `
+                        <div class="feedback">
+                            <h3>Feedback (${aiStatus})</h3>
+                            <p>${data.feedback}</p>
+                            ${data.message ? `<small><em>${data.message}</em></small>` : ''}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="feedback error">
+                            <h3>Error</h3>
+                            <p>${data.message || 'Failed to get feedback'}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="feedback error">
+                        <h3>Network Error</h3>
+                        <p>Failed to connect to the API: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

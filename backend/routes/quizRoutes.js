@@ -6,7 +6,8 @@ const {
     createQuiz, 
     getQuizzes, 
     getQuizById,
-    submitQuiz
+    submitQuiz,
+    getAIFeedback
 } = require('../controllers/quizController');
 
 
@@ -21,6 +22,9 @@ router.get('/quizzes/:id', getQuizById);
 
 // Route to submit answers for a quiz
 router.post('/quizzes/:id/submit', submitQuiz);
+
+// New route to get AI feedback on quiz performance
+router.post('/feedback', getAIFeedback);
 
 // We'll keep the test route for now
 router.get('/test', (req, res) => {

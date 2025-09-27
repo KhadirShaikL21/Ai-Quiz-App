@@ -40,3 +40,13 @@ Content-Type: application/json
     "68d823883674e6a1af1ebcc5": "boolean"
   }
 }
+
+### Test AI Feedback
+POST http://localhost:5001/api/feedback
+Content-Type: application/json
+
+{
+  "quizTopic": "JavaScript Fundamentals",
+  "score": 8,
+  "total": 10
+}

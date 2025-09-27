@@ -1,4 +1,7 @@
 const Quiz = require('../models/Quiz');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // @desc    Create a new quiz
 // @route   POST /api/quizzes
@@ -110,10 +113,120 @@ const submitQuiz = async (req, res) => {
 
 
 
+// @desc    Get AI-powered feedback for a quiz result
+// @route   POST /api/feedback
+// @access  Public
+const getAIFeedback = async (req, res) => {
+    try {
+        const { quizTopic, score, total } = req.body;
+
+        // Validate input
+        if (!quizTopic || score === undefined || total === undefined) {
+            return res.status(400).json({ 
+                message: 'Missing required fields: quizTopic, score, total' 
+            });
+        }
+
+        // Validate GEMINI_API_KEY
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(500).json({ 
+                message: 'GEMINI_API_KEY not configured' 
+            });
+        }
+
+        // Try multiple model names in case one isn't available
+        const modelNames = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro', 'gemini-pro'];
+        let model = null;
+        let lastError = null;
+
+        for (const modelName of modelNames) {
+            try {
+                model = genAI.getGenerativeModel({ model: modelName });
+                
+                // Test the model with a simple request
+                const testResult = await model.generateContent('Test');
+                console.log(`Successfully connected with model: ${modelName}`);
+                break;
+            } catch (error) {
+                console.log(`Model ${modelName} failed:`, error.message);
+                lastError = error;
+                model = null;
+            }
+        }
+
+        if (!model) {
+            console.error("All AI models failed, providing fallback feedback");
+            // Provide fallback feedback based on score percentage
+            const percentage = Math.round((score / total) * 100);
+            let feedbackText = "";
+            
+            if (percentage >= 90) {
+                feedbackText = `Excellent work! You scored ${score} out of ${total} (${percentage}%) on the ${quizTopic} quiz. You have a strong understanding of the material. Keep up the great work and continue building on this solid foundation!`;
+            } else if (percentage >= 70) {
+                feedbackText = `Great job! You scored ${score} out of ${total} (${percentage}%) on the ${quizTopic} quiz. You're doing well and have a good grasp of most concepts. Review the areas where you missed questions to further strengthen your knowledge.`;
+            } else if (percentage >= 50) {
+                feedbackText = `Good effort! You scored ${score} out of ${total} (${percentage}%) on the ${quizTopic} quiz. You're on the right track but there's room for improvement. Focus on studying the topics you found challenging and try practicing more questions.`;
+            } else {
+                feedbackText = `Keep working hard! You scored ${score} out of ${total} (${percentage}%) on the ${quizTopic} quiz. Don't be discouraged - learning takes time and practice. Review the material thoroughly and consider additional study resources to strengthen your understanding.`;
+            }
+            
+            return res.json({ feedback: feedbackText, isAIGenerated: false });
+        }
+
+        // Craft the prompt
+        const prompt = `A user just completed a quiz on the topic "${quizTopic}".
+        They scored ${score} out of ${total}.
+        Provide one paragraph of friendly, encouraging, and constructive feedback for them.
+        Keep the tone positive and motivating. Address the user directly as 'you'.`;
+
+        // Generate content
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const feedbackText = response.text();
+
+        res.json({ feedback: feedbackText, isAIGenerated: true });
+
+    } catch (error) {
+        console.error("Error generating AI feedback:", error);
+        console.error("Error details:", {
+            message: error.message,
+            code: error.code,
+            status: error.status
+        });
+        
+        // Provide fallback feedback if AI fails
+        const { quizTopic, score, total } = req.body;
+        if (score !== undefined && total !== undefined) {
+            const percentage = Math.round((score / total) * 100);
+            let fallbackFeedback = `You completed the ${quizTopic || 'quiz'} and scored ${score} out of ${total} (${percentage}%). `;
+            
+            if (percentage >= 70) {
+                fallbackFeedback += "Great work! Keep practicing to maintain your excellent performance.";
+            } else {
+                fallbackFeedback += "Keep studying and practicing - you're making progress!";
+            }
+            
+            return res.json({ 
+                feedback: fallbackFeedback, 
+                isAIGenerated: false,
+                message: "AI service temporarily unavailable, providing basic feedback"
+            });
+        }
+        
+        res.status(500).json({ 
+            message: "Failed to generate feedback.",
+            error: error.message 
+        });
+    }
+};
+
+
+
 
 module.exports = {
     createQuiz,
     getQuizzes,
     getQuizById,
-    submitQuiz
+    submitQuiz,
+    getAIFeedback
 };
