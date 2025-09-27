@@ -8,12 +8,21 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // @access  Public
 const createQuiz = async (req, res) => {
     try {
-        // Get the title and questions from the request body
-        const { title, questions } = req.body;
+        // Get the quiz data from the request body
+        const { title, description, difficulty, timeLimit, category, questions } = req.body;
+
+        // Validate required fields
+        if (!title || !questions || questions.length === 0) {
+            return res.status(400).json({ message: 'Title and at least one question are required' });
+        }
 
         // Create a new quiz instance using our model
         const quiz = new Quiz({
             title,
+            description: description || '',
+            difficulty: difficulty || 'Medium',
+            timeLimit: timeLimit || 300, // Default 5 minutes
+            category: category || 'General',
             questions,
         });
 
@@ -30,13 +39,13 @@ const createQuiz = async (req, res) => {
 };
 
 
-// @desc    Get all quizzes (only titles and IDs)
+// @desc    Get all quizzes (titles, descriptions, and metadata)
 // @route   GET /api/quizzes
 // @access  Public
 const getQuizzes = async (req, res) => {
     try {
-        // Find all quizzes but only return their title field
-        const quizzes = await Quiz.find({}).select('title');
+        // Find all quizzes but only return metadata (no questions)
+        const quizzes = await Quiz.find({}).select('title description difficulty timeLimit category createdAt');
         res.json(quizzes);
     } catch (error) {
         console.error(error);
@@ -220,7 +229,56 @@ const getAIFeedback = async (req, res) => {
     }
 };
 
+// @desc    Delete a quiz
+// @route   DELETE /api/quizzes/:id
+// @access  Public
+const deleteQuiz = async (req, res) => {
+    try {
+        const quiz = await Quiz.findById(req.params.id);
+        
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' });
+        }
+        
+        await Quiz.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Quiz deleted successfully' });
+        
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error: Could not delete quiz' });
+    }
+};
 
+// @desc    Update a quiz
+// @route   PUT /api/quizzes/:id
+// @access  Public
+const updateQuiz = async (req, res) => {
+    try {
+        const { title, description, difficulty, timeLimit, category, questions } = req.body;
+        
+        const quiz = await Quiz.findById(req.params.id);
+        
+        if (!quiz) {
+            return res.status(404).json({ message: 'Quiz not found' });
+        }
+        
+        // Update quiz fields
+        quiz.title = title || quiz.title;
+        quiz.description = description !== undefined ? description : quiz.description;
+        quiz.difficulty = difficulty || quiz.difficulty;
+        quiz.timeLimit = timeLimit || quiz.timeLimit;
+        quiz.category = category || quiz.category;
+        quiz.questions = questions || quiz.questions;
+        quiz.updatedAt = new Date();
+        
+        const updatedQuiz = await quiz.save();
+        res.json(updatedQuiz);
+        
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error: Could not update quiz' });
+    }
+};
 
 
 module.exports = {
@@ -228,5 +286,7 @@ module.exports = {
     getQuizzes,
     getQuizById,
     submitQuiz,
-    getAIFeedback
+    getAIFeedback,
+    deleteQuiz,
+    updateQuiz
 };
