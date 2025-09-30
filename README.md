@@ -5,6 +5,8 @@
 ![AI Quiz Platform](https://img.shields.io/badge/AI%20Quiz-Platform-blue?style=for-the-badge&logo=react)
 ![Version](https://img.shields.io/badge/Version-2.0.0-green?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+![Video Link](https://www.loom.com/share/0b8b4e2b5fb349f7a0257bfeddab3b07)
+
 
 **A Modern, Professional Quiz Application with AI-Powered Feedback**
 
