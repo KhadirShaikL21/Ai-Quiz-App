@@ -143,88 +143,87 @@ const getAIFeedback = async (req, res) => {
             });
         }
 
-        // Try multiple model names in case one isn't available
-        const modelNames = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro', 'gemini-pro'];
-        let model = null;
-        let lastError = null;
+        console.log('Attempting to generate AI feedback using Gemini 2.5 Flash...');
 
-        for (const modelName of modelNames) {
-            try {
-                model = genAI.getGenerativeModel({ model: modelName });
-                
-                // Test the model with a simple request
-                const testResult = await model.generateContent('Test');
-                console.log(`Successfully connected with model: ${modelName}`);
-                break;
-            } catch (error) {
-                console.log(`Model ${modelName} failed:`, error.message);
-                lastError = error;
-                model = null;
-            }
-        }
+        try {
+            // Use the working Gemini model
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+            
+            // Calculate percentage for better context
+            const percentage = Math.round((score / total) * 100);
+            
+            // Craft a detailed prompt for better feedback
+            const prompt = `You are an encouraging and knowledgeable tutor. A student just completed a quiz on "${quizTopic}" and scored ${score} out of ${total} questions correctly (${percentage}%).
 
-        if (!model) {
-            console.error("All AI models failed, providing fallback feedback");
-            // Provide fallback feedback based on score percentage
+Please provide personalized feedback that:
+1. Acknowledges their performance with appropriate encouragement
+2. Gives specific advice based on their score level
+3. Suggests next steps for improvement or further learning
+4. Maintains a positive, motivating tone
+5. Keeps the response to 2-3 sentences maximum
+
+Make it personal by addressing them directly as "you" and be specific about the ${quizTopic} topic.`;
+
+            console.log('Sending request to Gemini AI...');
+            
+            // Generate content using the latest API structure
+            const result = await model.generateContent({
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }]
+            });
+
+            const response = result.response;
+            const feedbackText = response.text();
+
+            console.log('AI feedback generated successfully');
+
+            res.json({ 
+                feedback: feedbackText, 
+                isAIGenerated: true,
+                model: "gemini-2.0-flash-exp",
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (aiError) {
+            console.error("Gemini AI Error:", aiError);
+            
+            // Provide enhanced fallback feedback
             const percentage = Math.round((score / total) * 100);
             let feedbackText = "";
             
             if (percentage >= 90) {
-                feedbackText = `Excellent work! You scored ${score} out of ${total} (${percentage}%) on the ${quizTopic} quiz. You have a strong understanding of the material. Keep up the great work and continue building on this solid foundation!`;
+                feedbackText = `Outstanding work! You scored ${score}/${total} (${percentage}%) on the ${quizTopic} quiz. You have mastered this topic and should feel confident in your knowledge. Consider exploring advanced topics or helping others learn!`;
+            } else if (percentage >= 80) {
+                feedbackText = `Excellent job! You scored ${score}/${total} (${percentage}%) on the ${quizTopic} quiz. You have a strong grasp of the material with just a few areas to fine-tune. Review the questions you missed to achieve perfection!`;
             } else if (percentage >= 70) {
-                feedbackText = `Great job! You scored ${score} out of ${total} (${percentage}%) on the ${quizTopic} quiz. You're doing well and have a good grasp of most concepts. Review the areas where you missed questions to further strengthen your knowledge.`;
+                feedbackText = `Great effort! You scored ${score}/${total} (${percentage}%) on the ${quizTopic} quiz. You understand most concepts well. Focus on reviewing the specific areas where you missed questions to boost your confidence.`;
+            } else if (percentage >= 60) {
+                feedbackText = `Good progress! You scored ${score}/${total} (${percentage}%) on the ${quizTopic} quiz. You're building a solid foundation. Spend more time on the challenging topics and take practice quizzes to improve your understanding.`;
             } else if (percentage >= 50) {
-                feedbackText = `Good effort! You scored ${score} out of ${total} (${percentage}%) on the ${quizTopic} quiz. You're on the right track but there's room for improvement. Focus on studying the topics you found challenging and try practicing more questions.`;
+                feedbackText = `Keep learning! You scored ${score}/${total} (${percentage}%) on the ${quizTopic} quiz. You're on the right path but need more practice. Break down the topics into smaller parts and focus on understanding the fundamentals.`;
             } else {
-                feedbackText = `Keep working hard! You scored ${score} out of ${total} (${percentage}%) on the ${quizTopic} quiz. Don't be discouraged - learning takes time and practice. Review the material thoroughly and consider additional study resources to strengthen your understanding.`;
-            }
-            
-            return res.json({ feedback: feedbackText, isAIGenerated: false });
-        }
-
-        // Craft the prompt
-        const prompt = `A user just completed a quiz on the topic "${quizTopic}".
-        They scored ${score} out of ${total}.
-        Provide one paragraph of friendly, encouraging, and constructive feedback for them.
-        Keep the tone positive and motivating. Address the user directly as 'you'.`;
-
-        // Generate content
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const feedbackText = response.text();
-
-        res.json({ feedback: feedbackText, isAIGenerated: true });
-
-    } catch (error) {
-        console.error("Error generating AI feedback:", error);
-        console.error("Error details:", {
-            message: error.message,
-            code: error.code,
-            status: error.status
-        });
-        
-        // Provide fallback feedback if AI fails
-        const { quizTopic, score, total } = req.body;
-        if (score !== undefined && total !== undefined) {
-            const percentage = Math.round((score / total) * 100);
-            let fallbackFeedback = `You completed the ${quizTopic || 'quiz'} and scored ${score} out of ${total} (${percentage}%). `;
-            
-            if (percentage >= 70) {
-                fallbackFeedback += "Great work! Keep practicing to maintain your excellent performance.";
-            } else {
-                fallbackFeedback += "Keep studying and practicing - you're making progress!";
+                feedbackText = `Don't give up! You scored ${score}/${total} (${percentage}%) on the ${quizTopic} quiz. Learning is a journey and every expert was once a beginner. Review the material thoroughly, seek additional resources, and practice regularly - you've got this!`;
             }
             
             return res.json({ 
-                feedback: fallbackFeedback, 
+                feedback: feedbackText, 
                 isAIGenerated: false,
-                message: "AI service temporarily unavailable, providing basic feedback"
+                fallbackReason: aiError.message,
+                model: "fallback-system",
+                timestamp: new Date().toISOString()
             });
         }
+
+    } catch (error) {
+        console.error("Error in getAIFeedback:", error);
         
         res.status(500).json({ 
-            message: "Failed to generate feedback.",
-            error: error.message 
+            message: "Failed to generate feedback",
+            error: error.message,
+            timestamp: new Date().toISOString()
         });
     }
 };
